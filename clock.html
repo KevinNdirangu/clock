@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clock with Alarms</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #282c34;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            width: 300px;
+        }
+
+        .digital-clock {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .alarm-container {
+            margin-top: 10px;
+        }
+
+        .flashing {
+            animation: flash 0.5s infinite alternate;
+        }
+
+        @keyframes flash {
+            0% { background-color: red; }
+            100% { background-color: white; color: black; }
+        }
+
+        button {
+            background: green;
+            color: white;
+            padding: 8px;
+            border: none;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .snooze, .stop {
+            display: none;
+        }
+
+        .toggle-container {
+            margin-bottom: 10px;
+        }
+
+        .alarm-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .alarm-item button {
+            background: red;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toggle-container">
+        <label>
+            <input type="checkbox" id="format-toggle">
+            24-Hour Format
+        </label>
+    </div>
+
+    <div class="container" id="clock-container">
+        <div class="digital-clock" id="digital-clock">12:00:00 AM</div>
+        <input type="time" id="alarm-time">
+        <button onclick="setAlarm()">Set Alarm</button>
+        <div class="alarm-container" id="alarm-list">No Alarms Set</div>
+        <button class="snooze" id="snooze" onclick="snoozeAlarm()">Snooze</button>
+        <button class="stop" id="stop" onclick="stopAlarm()">Stop</button>
+    </div>
+
+    <audio id="alarm-sound">
+        <source src="alarm.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        let alarms = [];
+        let is24Hour = false;
+        let ringingIndex = null;
+        let alarmSound = document.getElementById("alarm-sound");
+
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+            let seconds = now.getSeconds();
+            let ampm = "";
+
+            if (!is24Hour) {
+                ampm = hours >= 12 ? "PM" : "AM";
+                hours = hours % 12 || 12;
+            }
+
+            let formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            let fullDisplayTime = is24Hour ? `${formattedTime} HRS` : `${formattedTime} ${ampm}`;
+
+            document.getElementById("digital-clock").innerText = fullDisplayTime;
+
+            alarms.forEach((alarm, index) => {
+                let [alarmHour, alarmMinute] = alarm.time.split(":").map(Number);
+
+                if (!is24Hour) {
+                    let alarmAMPM = alarm.amPm;
+                    if (alarmAMPM === "PM" && alarmHour !== 12) alarmHour += 12;
+                    else if (alarmAMPM === "AM" && alarmHour === 12) alarmHour = 0;
+                }
+
+                if (alarmHour === now.getHours() && alarmMinute === now.getMinutes() && !alarm.ringing) {
+                    ringAlarm(index);
+                }
+            });
+        }
+
+        function setAlarm() {
+            let alarmInput = document.getElementById("alarm-time").value;
+            if (!alarmInput) return;
+
+            let [hours, minutes] = alarmInput.split(":");
+            let ampm = "";
+
+            if (!is24Hour) {
+                let hr = parseInt(hours);
+                ampm = hr >= 12 ? "PM" : "AM";
+                hours = (hr % 12 || 12).toString().padStart(2, '0');
+            }
+
+            let formattedAlarm = `${hours}:${minutes}`;
+            let displayAlarm = is24Hour ? `${formattedAlarm} HRS` : `${formattedAlarm} ${ampm}`;
+
+            alarms.push({ time: formattedAlarm, amPm: ampm, ringing: false });
+
+            updateAlarmList();
+            document.getElementById("alarm-time").value = "";
+        }
+
+        function updateAlarmList() {
+            let alarmList = document.getElementById("alarm-list");
+            if (alarms.length === 0) {
+                alarmList.innerHTML = "No Alarms Set";
+                return;
+            }
+
+            alarmList.innerHTML = "";
+            alarms.forEach((alarm, index) => {
+                let alarmDiv = document.createElement("div");
+                alarmDiv.classList.add("alarm-item");
+
+                let formattedAlarm = is24Hour ? `${alarm.time} HRS` : `${alarm.time} ${alarm.amPm}`;
+                alarmDiv.innerHTML = `${formattedAlarm} 
+                    <button onclick="editAlarm(${index})">Edit</button> 
+                    <button onclick="removeAlarm(${index})">Delete</button>`;
+
+                alarmList.appendChild(alarmDiv);
+            });
+        }
+
+        function editAlarm(index) {
+            let newTime = prompt("Enter new alarm time (HH:MM):");
+            if (!newTime || !/^\d{2}:\d{2}$/.test(newTime)) {
+                alert("Invalid format! Use HH:MM.");
+                return;
+            }
+
+            if (!is24Hour) {
+                let newAmPm = prompt("AM or PM?").toUpperCase();
+                if (newAmPm !== "AM" && newAmPm !== "PM") {
+                    alert("Invalid input! Enter AM or PM.");
+                    return;
+                }
+                alarms[index].amPm = newAmPm;
+            }
+
+            alarms[index].time = newTime;
+            updateAlarmList();
+        }
+
+        function ringAlarm(index) {
+            ringingIndex = index;
+            alarms[index].ringing = true;
+            document.getElementById("clock-container").classList.add("flashing");
+            alarmSound.loop = true;
+            alarmSound.play();
+            document.getElementById("snooze").style.display = "inline";
+            document.getElementById("stop").style.display = "inline";
+        }
+
+        function stopAlarm() {
+            if (ringingIndex !== null) {
+                document.getElementById("clock-container").classList.remove("flashing");
+                alarmSound.pause();
+                alarmSound.currentTime = 0;
+                alarms.splice(ringingIndex, 1);
+                ringingIndex = null;
+                updateAlarmList();
+                document.getElementById("snooze").style.display = "none";
+                document.getElementById("stop").style.display = "none";
+            }
+        }
+
+        function removeAlarm(index) {
+            alarms.splice(index, 1);
+            updateAlarmList();
+        }
+
+        document.getElementById("format-toggle").addEventListener("change", function () {
+            is24Hour = this.checked;
+            updateClock();
+        });
+
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+
+</body>
+</html>
