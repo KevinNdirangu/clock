@@ -61,9 +61,6 @@ You can switch between 12-hour and 24-hour formats using the settings menu (if a
 
 Customize the appearance as needed (color, fonts, etc.).
 
-Screenshots
-Here, you can include screenshots of your clock app in action.
-
 Contributing
 Contributions are welcome! If you'd like to improve the app, please feel free to fork the repository, make changes, and submit a pull request.
 
@@ -84,7 +81,6 @@ License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 Acknowledgments
-Vue.js: For building a powerful and reactive front-end.
 
 Electron: For enabling cross-platform desktop applications with web technologies.
 
